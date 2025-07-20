@@ -21,31 +21,29 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type UploadFileRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Data:
-	//
-	//	*UploadFileRequest_Metadata
-	//	*UploadFileRequest_Chunk
-	Data          isUploadFileRequest_Data `protobuf_oneof:"data"`
+type UploadChunkRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FilePath      string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	Offset        int64                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Content       []byte                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UploadFileRequest) Reset() {
-	*x = UploadFileRequest{}
+func (x *UploadChunkRequest) Reset() {
+	*x = UploadChunkRequest{}
 	mi := &file_file_server_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UploadFileRequest) String() string {
+func (x *UploadChunkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UploadFileRequest) ProtoMessage() {}
+func (*UploadChunkRequest) ProtoMessage() {}
 
-func (x *UploadFileRequest) ProtoReflect() protoreflect.Message {
+func (x *UploadChunkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_file_server_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -57,75 +55,54 @@ func (x *UploadFileRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UploadFileRequest.ProtoReflect.Descriptor instead.
-func (*UploadFileRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UploadChunkRequest.ProtoReflect.Descriptor instead.
+func (*UploadChunkRequest) Descriptor() ([]byte, []int) {
 	return file_file_server_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *UploadFileRequest) GetData() isUploadFileRequest_Data {
+func (x *UploadChunkRequest) GetFilePath() string {
 	if x != nil {
-		return x.Data
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *UploadChunkRequest) GetOffset() int64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *UploadChunkRequest) GetContent() []byte {
+	if x != nil {
+		return x.Content
 	}
 	return nil
 }
 
-func (x *UploadFileRequest) GetMetadata() *FileMetadata {
-	if x != nil {
-		if x, ok := x.Data.(*UploadFileRequest_Metadata); ok {
-			return x.Metadata
-		}
-	}
-	return nil
-}
-
-func (x *UploadFileRequest) GetChunk() []byte {
-	if x != nil {
-		if x, ok := x.Data.(*UploadFileRequest_Chunk); ok {
-			return x.Chunk
-		}
-	}
-	return nil
-}
-
-type isUploadFileRequest_Data interface {
-	isUploadFileRequest_Data()
-}
-
-type UploadFileRequest_Metadata struct {
-	Metadata *FileMetadata `protobuf:"bytes,1,opt,name=metadata,proto3,oneof"`
-}
-
-type UploadFileRequest_Chunk struct {
-	Chunk []byte `protobuf:"bytes,2,opt,name=chunk,proto3,oneof"`
-}
-
-func (*UploadFileRequest_Metadata) isUploadFileRequest_Data() {}
-
-func (*UploadFileRequest_Chunk) isUploadFileRequest_Data() {}
-
-type FileMetadata struct {
+type UploadChunkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
-	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	ContentType   string                 `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FileMetadata) Reset() {
-	*x = FileMetadata{}
+func (x *UploadChunkResponse) Reset() {
+	*x = UploadChunkResponse{}
 	mi := &file_file_server_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FileMetadata) String() string {
+func (x *UploadChunkResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FileMetadata) ProtoMessage() {}
+func (*UploadChunkResponse) ProtoMessage() {}
 
-func (x *FileMetadata) ProtoReflect() protoreflect.Message {
+func (x *UploadChunkResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_file_server_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -137,94 +114,19 @@ func (x *FileMetadata) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FileMetadata.ProtoReflect.Descriptor instead.
-func (*FileMetadata) Descriptor() ([]byte, []int) {
+// Deprecated: Use UploadChunkResponse.ProtoReflect.Descriptor instead.
+func (*UploadChunkResponse) Descriptor() ([]byte, []int) {
 	return file_file_server_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *FileMetadata) GetFilename() string {
+func (x *UploadChunkResponse) GetSuccess() bool {
 	if x != nil {
-		return x.Filename
+		return x.Success
 	}
-	return ""
+	return false
 }
 
-func (x *FileMetadata) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *FileMetadata) GetContentType() string {
-	if x != nil {
-		return x.ContentType
-	}
-	return ""
-}
-
-type UploadFileResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FileId        string                 `protobuf:"bytes,1,opt,name=file_id,json=fileId,proto3" json:"file_id,omitempty"`
-	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UploadFileResponse) Reset() {
-	*x = UploadFileResponse{}
-	mi := &file_file_server_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UploadFileResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UploadFileResponse) ProtoMessage() {}
-
-func (x *UploadFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_file_server_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UploadFileResponse.ProtoReflect.Descriptor instead.
-func (*UploadFileResponse) Descriptor() ([]byte, []int) {
-	return file_file_server_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *UploadFileResponse) GetFileId() string {
-	if x != nil {
-		return x.FileId
-	}
-	return ""
-}
-
-func (x *UploadFileResponse) GetFilename() string {
-	if x != nil {
-		return x.Filename
-	}
-	return ""
-}
-
-func (x *UploadFileResponse) GetSize() int64 {
-	if x != nil {
-		return x.Size
-	}
-	return 0
-}
-
-func (x *UploadFileResponse) GetMessage() string {
+func (x *UploadChunkResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
@@ -235,23 +137,16 @@ var File_file_server_proto protoreflect.FileDescriptor
 
 const file_file_server_proto_rawDesc = "" +
 	"\n" +
-	"\x11file_server.proto\"`\n" +
-	"\x11UploadFileRequest\x12+\n" +
-	"\bmetadata\x18\x01 \x01(\v2\r.FileMetadataH\x00R\bmetadata\x12\x16\n" +
-	"\x05chunk\x18\x02 \x01(\fH\x00R\x05chunkB\x06\n" +
-	"\x04data\"a\n" +
-	"\fFileMetadata\x12\x1a\n" +
-	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\x12!\n" +
-	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\"w\n" +
-	"\x12UploadFileResponse\x12\x17\n" +
-	"\afile_id\x18\x01 \x01(\tR\x06fileId\x12\x1a\n" +
-	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x12\n" +
-	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage2F\n" +
-	"\vFileService\x127\n" +
-	"\n" +
-	"UploadFile\x12\x12.UploadFileRequest\x1a\x13.UploadFileResponse(\x01B\tZ\a./protob\x06proto3"
+	"\x11file_server.proto\"c\n" +
+	"\x12UploadChunkRequest\x12\x1b\n" +
+	"\tfile_path\x18\x01 \x01(\tR\bfilePath\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x03R\x06offset\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\fR\acontent\"I\n" +
+	"\x13UploadChunkResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2G\n" +
+	"\vFileService\x128\n" +
+	"\vUploadChunk\x12\x13.UploadChunkRequest\x1a\x14.UploadChunkResponseB\tZ\a./protob\x06proto3"
 
 var (
 	file_file_server_proto_rawDescOnce sync.Once
@@ -265,21 +160,19 @@ func file_file_server_proto_rawDescGZIP() []byte {
 	return file_file_server_proto_rawDescData
 }
 
-var file_file_server_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_file_server_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_file_server_proto_goTypes = []any{
-	(*UploadFileRequest)(nil),  // 0: UploadFileRequest
-	(*FileMetadata)(nil),       // 1: FileMetadata
-	(*UploadFileResponse)(nil), // 2: UploadFileResponse
+	(*UploadChunkRequest)(nil),  // 0: UploadChunkRequest
+	(*UploadChunkResponse)(nil), // 1: UploadChunkResponse
 }
 var file_file_server_proto_depIdxs = []int32{
-	1, // 0: UploadFileRequest.metadata:type_name -> FileMetadata
-	0, // 1: FileService.UploadFile:input_type -> UploadFileRequest
-	2, // 2: FileService.UploadFile:output_type -> UploadFileResponse
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0, // 0: FileService.UploadChunk:input_type -> UploadChunkRequest
+	1, // 1: FileService.UploadChunk:output_type -> UploadChunkResponse
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_file_server_proto_init() }
@@ -287,17 +180,13 @@ func file_file_server_proto_init() {
 	if File_file_server_proto != nil {
 		return
 	}
-	file_file_server_proto_msgTypes[0].OneofWrappers = []any{
-		(*UploadFileRequest_Metadata)(nil),
-		(*UploadFileRequest_Chunk)(nil),
-	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_file_server_proto_rawDesc), len(file_file_server_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

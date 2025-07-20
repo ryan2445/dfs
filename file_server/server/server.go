@@ -1,14 +1,16 @@
 package server
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"dfs/file_server/chunk_store"
+	"dfs/file_server/metadata_store"
 	"dfs/file_server/proto"
 
 	"google.golang.org/grpc"
@@ -16,54 +18,74 @@ import (
 
 type FileServer struct {
 	proto.UnimplementedFileServiceServer
+	metadataStore metadata_store.MetadataStoreInterface
+	chunkStore    chunk_store.ChunkStoreInterface
 }
 
 func StartServer() error {
-	lis, err := net.Listen("tcp", ":50051")
+	metadataStore, err := metadata_store.NewMetadataStore()
+	if err != nil {
+		return fmt.Errorf("failed to create metadata store: %v", err)
+	}
+	defer metadataStore.Close()
+
+	chunkStore, err := chunk_store.NewChunkStore()
+	if err != nil {
+		return fmt.Errorf("failed to create chunk store: %v", err)
+	}
+
+	server := grpc.NewServer()
+	fileServer := &FileServer{metadataStore: metadataStore, chunkStore: chunkStore}
+	proto.RegisterFileServiceServer(server, fileServer)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-stop
+		log.Println("Shutting down gRPC server...")
+		server.GracefulStop()
+	}()
+
+	listener, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
-	proto.RegisterFileServiceServer(s, &FileServer{})
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-stop
-		log.Println("Shutting down gRPC server...")
-		s.GracefulStop()
-	}()
-
 	fmt.Println("gRPC file server starting on :50051")
-	if err := s.Serve(lis); err != nil {
+	if err := server.Serve(listener); err != nil {
 		return fmt.Errorf("failed to serve: %v", err)
 	}
 
 	return nil
 }
 
-func (s *FileServer) UploadFile(stream proto.FileService_UploadFileServer) error {
-	log.Println("UploadFile called")
+func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequest) (*proto.UploadChunkResponse, error) {
+	log.Printf("received UploadChunkRequest: %+v", req)
 
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		switch data := req.Data.(type) {
-		case *proto.UploadFileRequest_Metadata:
-			log.Printf("Received metadata: filename=%s, size=%d", data.Metadata.Filename, data.Metadata.Size)
-		case *proto.UploadFileRequest_Chunk:
-			log.Printf("Received chunk: %d bytes", len(data.Chunk))
-		}
+	chunkID, nodeID, err := s.chunkStore.Write(req)
+	if err != nil {
+		return &proto.UploadChunkResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to write chunk: %v", err),
+		}, nil
 	}
 
-	return stream.SendAndClose(&proto.UploadFileResponse{
-		Message: "File uploaded successfully",
-	})
+	log.Printf("chunkID: %s, nodeID: %s", chunkID, nodeID)
+
+	if err := s.metadataStore.PutChunk(chunkID, &metadata_store.Chunk{
+		Nodes:    map[string]struct{}{nodeID: {}},
+		Offset:   req.Offset,
+		Size:     int64(len(req.Content)),
+		FilePath: req.FilePath,
+	}); err != nil {
+		return &proto.UploadChunkResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to store chunk mapping: %v", err),
+		}, nil
+	}
+
+	return &proto.UploadChunkResponse{
+		Success: true,
+		Message: fmt.Sprintf("chunk uploaded successfully: %s", chunkID),
+	}, nil
 }

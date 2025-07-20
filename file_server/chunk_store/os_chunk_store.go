@@ -1,0 +1,42 @@
+package chunk_store
+
+import (
+	"crypto/sha256"
+	"dfs/file_server/proto"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+type OSChunkStore struct {
+	directory string
+}
+
+func NewOSChunkStore(directory string) (ChunkStoreInterface, error) {
+	if err := os.MkdirAll(directory, 0744); err != nil {
+		return nil, fmt.Errorf("failed to create chunk directory: %v", err)
+	}
+	return &OSChunkStore{directory: directory}, nil
+}
+
+func (c *OSChunkStore) Write(chunk *proto.UploadChunkRequest) (string, string, error) {
+	if err := ValidateChunk(chunk.Content); err != nil {
+		return "", "", err
+	}
+
+	hash := sha256.Sum256(chunk.Content)
+	hashStr := fmt.Sprintf("%x", hash)
+
+	node, err := os.Hostname()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get hostname: %v", err)
+	}
+
+	chunkPath := filepath.Join(c.directory, hashStr)
+
+	if err := os.WriteFile(chunkPath, chunk.Content, 0644); err != nil {
+		return "", "", fmt.Errorf("failed to write chunk file: %v", err)
+	}
+
+	return hashStr, node, nil
+}

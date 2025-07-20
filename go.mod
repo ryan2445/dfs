@@ -3,6 +3,7 @@ module dfs
 go 1.24.5
 
 require (
+	go.etcd.io/bbolt v1.4.2
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 )

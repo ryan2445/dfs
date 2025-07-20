@@ -1,1 +1,4 @@
 file_server/file_server
+file_server/data/
+file_server/server/test_data/
+.DS_Store
