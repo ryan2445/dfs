@@ -17,6 +17,7 @@ type MetadataStoreInterface interface {
 	PutFile(key string, value *File) error
 	GetChunk(key string) (*Chunk, error)
 	PutChunk(key string, value *Chunk) error
+	GetChunksForFile(filePath string) (map[string]*Chunk, error)
 	Close() error
 }
 

@@ -4,6 +4,8 @@ option go_package = "./proto";
 
 service FileService {
   rpc UploadChunk(UploadChunkRequest) returns (UploadChunkResponse);
+  rpc DownloadChunk(DownloadChunkRequest) returns (DownloadChunkResponse);
+  rpc ListChunks(ListChunksRequest) returns (ListChunksResponse);
 }
 
 message UploadChunkRequest {
@@ -15,4 +17,30 @@ message UploadChunkRequest {
 message UploadChunkResponse {
   bool success = 1;
   string message = 2;
+}
+
+message ListChunksRequest {
+  string file_path = 1;
+}
+
+message ChunkInfo {
+  string chunk_id = 1;
+  int64 offset = 2;
+  int64 size = 3;
+}
+
+message ListChunksResponse {
+  bool success = 1;
+  string message = 2;
+  repeated ChunkInfo chunks = 3;
+}
+
+message DownloadChunkRequest {
+  string chunk_id = 1;
+}
+
+message DownloadChunkResponse {
+  bool success = 1;
+  string message = 2;
+  bytes content = 3;
 }

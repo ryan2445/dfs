@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"dfs/file_server/chunk_store"
@@ -78,6 +79,7 @@ func TestUploadChunk(t *testing.T) {
 		Offset:   0,
 		Content:  []byte("hello world"),
 	}
+
 	resp, err := client.UploadChunk(context.Background(), req)
 	if err != nil {
 		t.Fatalf("UploadChunk failed: %v", err)
@@ -127,5 +129,112 @@ func TestUploadChunk(t *testing.T) {
 		t.Errorf("Expected chunk file to exist at %s", chunkPath)
 	} else if err != nil {
 		t.Errorf("Error checking chunk file: %v", err)
+	}
+}
+
+func TestListChunks(t *testing.T) {
+	client := getTestClient(t)
+
+	filePath := "/test/multipart_file.txt"
+	chunks := []struct {
+		offset  int64
+		content string
+	}{
+		{0, "chunk1"},
+		{6, "chunk2"},
+		{12, "chunk3"},
+	}
+
+	var expectedChunkIDs []string
+	for _, chunk := range chunks {
+		req := &proto.UploadChunkRequest{
+			FilePath: filePath,
+			Offset:   chunk.offset,
+			Content:  []byte(chunk.content),
+		}
+		resp, err := client.UploadChunk(context.Background(), req)
+		if err != nil {
+			t.Fatalf("UploadChunk failed: %v", err)
+		}
+		if !resp.Success {
+			t.Fatalf("Expected upload success, got: %s", resp.Message)
+		}
+
+		hash := sha256.Sum256(req.Content)
+		expectedChunkIDs = append(expectedChunkIDs, fmt.Sprintf("%x", hash))
+	}
+
+	listReq := &proto.ListChunksRequest{
+		FilePath: filePath,
+	}
+	listResp, err := client.ListChunks(context.Background(), listReq)
+	if err != nil {
+		t.Fatalf("ListChunks failed: %v", err)
+	}
+	if !listResp.Success {
+		t.Fatalf("Expected ListChunks success, got: %s", listResp.Message)
+	}
+
+	if len(listResp.Chunks) != len(chunks) {
+		t.Errorf("Expected %d chunks, got %d", len(chunks), len(listResp.Chunks))
+	}
+
+	for i := 0; i < len(listResp.Chunks)-1; i++ {
+		if listResp.Chunks[i].Offset >= listResp.Chunks[i+1].Offset {
+			t.Errorf("Chunks not sorted by offset: chunk %d offset=%d, chunk %d offset=%d",
+				i, listResp.Chunks[i].Offset, i+1, listResp.Chunks[i+1].Offset)
+		}
+	}
+
+	expectedOffsets := []int64{0, 6, 12}
+	expectedSizes := []int64{6, 6, 6}
+	for i, chunkInfo := range listResp.Chunks {
+		if chunkInfo.Offset != expectedOffsets[i] {
+			t.Errorf("Chunk %d: expected offset=%d, got offset=%d", i, expectedOffsets[i], chunkInfo.Offset)
+		}
+		if chunkInfo.Size != expectedSizes[i] {
+			t.Errorf("Chunk %d: expected size=%d, got size=%d", i, expectedSizes[i], chunkInfo.Size)
+		}
+		found := slices.Contains(expectedChunkIDs, chunkInfo.ChunkId)
+		if !found {
+			t.Errorf("Chunk %d: unexpected chunk ID %s", i, chunkInfo.ChunkId)
+		}
+	}
+}
+
+func TestDownloadChunk(t *testing.T) {
+	client := getTestClient(t)
+
+	testContent := []byte("test chunk content for download")
+	uploadReq := &proto.UploadChunkRequest{
+		FilePath: "/test/download_test.txt",
+		Offset:   0,
+		Content:  testContent,
+	}
+	uploadResp, err := client.UploadChunk(context.Background(), uploadReq)
+	if err != nil {
+		t.Fatalf("UploadChunk failed: %v", err)
+	}
+	if !uploadResp.Success {
+		t.Fatalf("Expected upload success, got: %s", uploadResp.Message)
+	}
+
+	hash := sha256.Sum256(testContent)
+	chunkID := fmt.Sprintf("%x", hash)
+
+	downloadReq := &proto.DownloadChunkRequest{
+		ChunkId: chunkID,
+	}
+	downloadResp, err := client.DownloadChunk(context.Background(), downloadReq)
+	if err != nil {
+		t.Fatalf("DownloadChunk failed: %v", err)
+	}
+	if !downloadResp.Success {
+		t.Fatalf("Expected DownloadChunk success, got: %s", downloadResp.Message)
+	}
+
+	if string(downloadResp.Content) != string(testContent) {
+		t.Errorf("Downloaded content doesn't match. Expected: %s, Got: %s",
+			string(testContent), string(downloadResp.Content))
 	}
 }

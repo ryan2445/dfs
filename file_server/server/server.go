@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 
 	"dfs/file_server/chunk_store"
@@ -60,7 +61,7 @@ func StartServer() error {
 }
 
 func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequest) (*proto.UploadChunkResponse, error) {
-	log.Printf("received UploadChunkRequest: %+v", req)
+	log.Printf("received UploadChunkRequest: filepath=%s offset=%d", req.FilePath, req.Offset)
 
 	chunkID, nodeID, err := s.chunkStore.Write(req)
 	if err != nil {
@@ -87,5 +88,54 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 	return &proto.UploadChunkResponse{
 		Success: true,
 		Message: fmt.Sprintf("chunk uploaded successfully: %s", chunkID),
+	}, nil
+}
+
+func (s *FileServer) ListChunks(ctx context.Context, req *proto.ListChunksRequest) (*proto.ListChunksResponse, error) {
+	log.Printf("received ListChunksRequest for file: %s", req.FilePath)
+
+	chunks, err := s.metadataStore.GetChunksForFile(req.FilePath)
+	if err != nil {
+		return &proto.ListChunksResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to get chunks for file: %v", err),
+		}, nil
+	}
+
+	var chunkInfos []*proto.ChunkInfo
+	for chunkID, chunk := range chunks {
+		chunkInfos = append(chunkInfos, &proto.ChunkInfo{
+			ChunkId: chunkID,
+			Offset:  chunk.Offset,
+			Size:    chunk.Size,
+		})
+	}
+
+	sort.Slice(chunkInfos, func(i, j int) bool {
+		return chunkInfos[i].Offset < chunkInfos[j].Offset
+	})
+
+	return &proto.ListChunksResponse{
+		Chunks:  chunkInfos,
+		Success: true,
+		Message: fmt.Sprintf("found %d chunks for file", len(chunkInfos)),
+	}, nil
+}
+
+func (s *FileServer) DownloadChunk(ctx context.Context, req *proto.DownloadChunkRequest) (*proto.DownloadChunkResponse, error) {
+	log.Printf("received DownloadChunkRequest for chunk: %s", req.ChunkId)
+
+	content, err := s.chunkStore.Read(req.ChunkId)
+	if err != nil {
+		return &proto.DownloadChunkResponse{
+			Success: false,
+			Message: fmt.Sprintf("failed to read chunk: %v", err),
+		}, nil
+	}
+
+	return &proto.DownloadChunkResponse{
+		Success: true,
+		Message: fmt.Sprintf("chunk downloaded successfully: %s", req.ChunkId),
+		Content: content,
 	}, nil
 }

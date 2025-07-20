@@ -125,3 +125,27 @@ func (metadata *BoltMetadataStore) PutChunk(key string, value *Chunk) error {
 		return bucket.Put([]byte(key), valueData)
 	})
 }
+
+func (metadata *BoltMetadataStore) GetChunksForFile(filePath string) (map[string]*Chunk, error) {
+	file, err := metadata.GetFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file metadata: %v", err)
+	}
+	if file == nil {
+		return nil, fmt.Errorf("file not found: %s", filePath)
+	}
+
+	chunks := make(map[string]*Chunk)
+	for chunkID := range file.Chunks {
+		chunk, err := metadata.GetChunk(chunkID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chunk %s: %v", chunkID, err)
+		}
+		if chunk == nil {
+			return nil, fmt.Errorf("chunk not found: %s", chunkID)
+		}
+		chunks[chunkID] = chunk
+	}
+
+	return chunks, nil
+}

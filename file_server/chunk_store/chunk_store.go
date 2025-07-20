@@ -6,11 +6,12 @@ import (
 )
 
 const (
-	MaxChunkSize = 1024 * 1024 // 1MB max chunk size
+	MaxChunkSize = 1024 * 1024 * 3 // 3MiB max chunk size
 )
 
 type ChunkStoreInterface interface {
 	Write(chunk *proto.UploadChunkRequest) (string, string, error)
+	Read(chunkID string) ([]byte, error)
 }
 
 func NewChunkStore() (ChunkStoreInterface, error) {

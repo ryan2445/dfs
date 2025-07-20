@@ -34,9 +34,20 @@ func (c *OSChunkStore) Write(chunk *proto.UploadChunkRequest) (string, string, e
 
 	chunkPath := filepath.Join(c.directory, hashStr)
 
-	if err := os.WriteFile(chunkPath, chunk.Content, 0644); err != nil {
+	if err := os.WriteFile(chunkPath, chunk.Content, 0744); err != nil {
 		return "", "", fmt.Errorf("failed to write chunk file: %v", err)
 	}
 
 	return hashStr, node, nil
+}
+
+func (c *OSChunkStore) Read(chunkID string) ([]byte, error) {
+	chunkPath := filepath.Join(c.directory, chunkID)
+
+	content, err := os.ReadFile(chunkPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read chunk file: %v", err)
+	}
+
+	return content, nil
 }
