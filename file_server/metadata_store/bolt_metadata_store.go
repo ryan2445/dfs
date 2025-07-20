@@ -28,7 +28,7 @@ func NewBoltMetadataStore(directory string) (*BoltMetadataStore, error) {
 		return nil, fmt.Errorf("failed to open metadata database: %v", err)
 	}
 
-	if err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		if _, err := tx.CreateBucketIfNotExists(FileMetadataBucket); err != nil {
 			return err
 		}
@@ -36,7 +36,9 @@ func NewBoltMetadataStore(directory string) (*BoltMetadataStore, error) {
 			return err
 		}
 		return nil
-	}); err != nil {
+	})
+
+	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to create buckets: %v", err)
 	}
@@ -51,7 +53,7 @@ func (metadata *BoltMetadataStore) Close() error {
 func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 	var fileMetadata *File
 
-	if err := metadata.db.View(func(tx *bolt.Tx) error {
+	err := metadata.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(FileMetadataBucket)
 		value := bucket.Get([]byte(key))
 		if value == nil {
@@ -60,7 +62,9 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 		var err error
 		fileMetadata, err = deserialize[File](value)
 		return err
-	}); err != nil {
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -70,7 +74,7 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 	var chunkMetadata *Chunk
 
-	if err := metadata.db.View(func(tx *bolt.Tx) error {
+	err := metadata.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(ChunksBucket)
 		value := bucket.Get([]byte(key))
 		if value == nil {
@@ -79,7 +83,9 @@ func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 		var err error
 		chunkMetadata, err = deserialize[Chunk](value)
 		return err
-	}); err != nil {
+	})
+
+	if err != nil {
 		return nil, err
 	}
 

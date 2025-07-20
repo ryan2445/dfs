@@ -73,13 +73,15 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 		return nil, fmt.Errorf("failed to write chunk: %v", err)
 	}
 
-	if err := s.metadataStore.PutChunk(&metadata_store.Chunk{
+	err = s.metadataStore.PutChunk(&metadata_store.Chunk{
 		Nodes:    map[string]struct{}{nodeID: {}},
 		Offset:   req.Offset,
 		Size:     int64(len(req.Content)),
 		FilePath: req.FilePath,
 		Hash:     chunkHash,
-	}); err != nil {
+	})
+
+	if err != nil {
 		return nil, fmt.Errorf("failed to store chunk mapping: %v", err)
 	}
 

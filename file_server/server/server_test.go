@@ -92,30 +92,22 @@ func TestUploadChunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFile failed: %v", err)
 	}
-	if file == nil {
-		t.Errorf("Expected file metadata to exist for file %s", req.FilePath)
-	} else {
-		if _, ok := file.Chunks[chunkID]; !ok {
-			t.Errorf("Expected chunk ID %s to be in file metadata", chunkID)
-		}
+	if _, ok := file.Chunks[chunkID]; !ok {
+		t.Errorf("Expected chunk ID %s to be in file metadata", chunkID)
 	}
 
 	chunk, err := metadataStore.GetChunk(chunkID)
 	if err != nil {
 		t.Fatalf("GetChunk failed: %v", err)
 	}
-	if chunk == nil {
-		t.Errorf("Expected chunk metadata to exist for chunk ID %s", chunkID)
-	} else {
-		if chunk.FilePath != req.FilePath {
-			t.Errorf("Expected FilePath=%s, got FilePath=%s", req.FilePath, chunk.FilePath)
-		}
-		if chunk.Offset != req.Offset {
-			t.Errorf("Expected Offset=%d, got Offset=%d", req.Offset, chunk.Offset)
-		}
-		if chunk.Size != int64(len(req.Content)) {
-			t.Errorf("Expected Size=%d, got Size=%d", len(req.Content), chunk.Size)
-		}
+	if chunk.FilePath != req.FilePath {
+		t.Errorf("Expected FilePath=%s, got FilePath=%s", req.FilePath, chunk.FilePath)
+	}
+	if chunk.Offset != req.Offset {
+		t.Errorf("Expected Offset=%d, got Offset=%d", req.Offset, chunk.Offset)
+	}
+	if chunk.Size != int64(len(req.Content)) {
+		t.Errorf("Expected Size=%d, got Size=%d", len(req.Content), chunk.Size)
 	}
 
 	chunkPath := filepath.Join(testDataDir, chunkHash)

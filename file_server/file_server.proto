@@ -15,8 +15,7 @@ message UploadChunkRequest {
   bytes content = 3;
 }
 
-message UploadChunkResponse {
-}
+message UploadChunkResponse {}
 
 message ListChunksRequest {
   string file_path = 1;
@@ -44,6 +43,4 @@ message DeleteChunkRequest {
   string chunk_id = 1;
 }
 
-message DeleteChunkResponse {
-
-}
+message DeleteChunkResponse {}
