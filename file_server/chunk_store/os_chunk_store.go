@@ -55,3 +55,13 @@ func (c *OSChunkStore) Read(chunkID string) ([]byte, error) {
 
 	return content, nil
 }
+
+func (c *OSChunkStore) Delete(chunkID string) error {
+	chunkPath := filepath.Join(c.directory, chunkID)
+	
+	if err := os.Remove(chunkPath); err != nil {
+		return fmt.Errorf("failed to delete chunk file: %v", err)
+	}
+	
+	return nil
+}

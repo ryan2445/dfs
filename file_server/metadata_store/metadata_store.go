@@ -6,8 +6,7 @@ import (
 )
 
 type File struct {
-	Size   int64    `json:"size"`
-	Chunks []string `json:"chunks"`
+	Chunks map[string]struct{} `json:"chunks"`
 }
 
 type Chunk struct {
@@ -41,6 +40,7 @@ type MetadataStoreInterface interface {
 	GetFile(key string) (*File, error)
 	GetChunk(key string) (*Chunk, error)
 	PutChunk(chunk *Chunk) error
+	DeleteChunk(chunkID string, filePath string) error
 	GetChunksForFile(filePath string) (map[string]*Chunk, error)
 	Close() error
 }

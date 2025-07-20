@@ -12,6 +12,7 @@ const (
 type ChunkStoreInterface interface {
 	Write(chunk *proto.UploadChunkRequest) (string, string, error)
 	Read(chunkID string) ([]byte, error)
+	Delete(chunkID string) error
 }
 
 func NewChunkStore() (ChunkStoreInterface, error) {

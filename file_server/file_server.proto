@@ -6,6 +6,7 @@ service FileService {
   rpc UploadChunk(UploadChunkRequest) returns (UploadChunkResponse);
   rpc DownloadChunk(DownloadChunkRequest) returns (DownloadChunkResponse);
   rpc ListChunks(ListChunksRequest) returns (ListChunksResponse);
+  rpc DeleteChunk(DeleteChunkRequest) returns (DeleteChunkResponse);
 }
 
 message UploadChunkRequest {
@@ -15,8 +16,6 @@ message UploadChunkRequest {
 }
 
 message UploadChunkResponse {
-  bool success = 1;
-  string message = 2;
 }
 
 message ListChunksRequest {
@@ -30,8 +29,6 @@ message ChunkInfo {
 }
 
 message ListChunksResponse {
-  bool success = 1;
-  string message = 2;
   repeated ChunkInfo chunks = 3;
 }
 
@@ -40,7 +37,13 @@ message DownloadChunkRequest {
 }
 
 message DownloadChunkResponse {
-  bool success = 1;
-  string message = 2;
   bytes content = 3;
+}
+
+message DeleteChunkRequest {
+  string chunk_id = 1;
+}
+
+message DeleteChunkResponse {
+
 }

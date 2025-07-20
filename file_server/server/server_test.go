@@ -80,12 +80,9 @@ func TestUploadChunk(t *testing.T) {
 		Content:  []byte("hello world"),
 	}
 
-	resp, err := client.UploadChunk(context.Background(), req)
+	_, err := client.UploadChunk(context.Background(), req)
 	if err != nil {
 		t.Fatalf("UploadChunk failed: %v", err)
-	}
-	if !resp.Success {
-		t.Errorf("Expected success=true, got success=%v", resp.Success)
 	}
 
 	chunkHash := fmt.Sprintf("%x", sha256.Sum256(req.Content))
@@ -98,10 +95,7 @@ func TestUploadChunk(t *testing.T) {
 	if file == nil {
 		t.Errorf("Expected file metadata to exist for file %s", req.FilePath)
 	} else {
-		if file.Size != int64(len(req.Content)) {
-			t.Errorf("Expected Size=%d, got Size=%d", len(req.Content), file.Size)
-		}
-		if !slices.Contains(file.Chunks, chunkID) {
+		if _, ok := file.Chunks[chunkID]; !ok {
 			t.Errorf("Expected chunk ID %s to be in file metadata", chunkID)
 		}
 	}
@@ -152,12 +146,9 @@ func TestListChunks(t *testing.T) {
 			Offset:   chunk.offset,
 			Content:  []byte(chunk.content),
 		}
-		resp, err := client.UploadChunk(context.Background(), req)
+		_, err := client.UploadChunk(context.Background(), req)
 		if err != nil {
 			t.Fatalf("UploadChunk failed: %v", err)
-		}
-		if !resp.Success {
-			t.Fatalf("Expected upload success, got: %s", resp.Message)
 		}
 
 		chunkHash := fmt.Sprintf("%x", sha256.Sum256(req.Content))
@@ -171,9 +162,6 @@ func TestListChunks(t *testing.T) {
 	listResp, err := client.ListChunks(context.Background(), listReq)
 	if err != nil {
 		t.Fatalf("ListChunks failed: %v", err)
-	}
-	if !listResp.Success {
-		t.Fatalf("Expected ListChunks success, got: %s", listResp.Message)
 	}
 
 	if len(listResp.Chunks) != len(chunks) {
@@ -212,12 +200,9 @@ func TestDownloadChunk(t *testing.T) {
 		Offset:   0,
 		Content:  testContent,
 	}
-	uploadResp, err := client.UploadChunk(context.Background(), uploadReq)
+	_, err := client.UploadChunk(context.Background(), uploadReq)
 	if err != nil {
 		t.Fatalf("UploadChunk failed: %v", err)
-	}
-	if !uploadResp.Success {
-		t.Fatalf("Expected upload success, got: %s", uploadResp.Message)
 	}
 
 	chunkHash := fmt.Sprintf("%x", sha256.Sum256(testContent))
@@ -229,9 +214,6 @@ func TestDownloadChunk(t *testing.T) {
 	downloadResp, err := client.DownloadChunk(context.Background(), downloadReq)
 	if err != nil {
 		t.Fatalf("DownloadChunk failed: %v", err)
-	}
-	if !downloadResp.Success {
-		t.Fatalf("Expected DownloadChunk success, got: %s", downloadResp.Message)
 	}
 
 	if string(downloadResp.Content) != string(testContent) {

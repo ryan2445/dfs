@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -48,12 +49,6 @@ func main() {
 	}
 }
 
-type uploadChunk struct {
-	data   []byte
-	offset int64
-	index  int
-}
-
 func uploadFile(filePath string) error {
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -64,94 +59,113 @@ func uploadFile(filePath string) error {
 	client := proto.NewFileServiceClient(conn)
 	ctx := context.Background()
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
+	existingChunks := make(map[string]struct{})
+	listResp, err := client.ListChunks(ctx, &proto.ListChunksRequest{
+		FilePath: filePath,
+	})
+	if err == nil {
+		for _, chunk := range listResp.Chunks {
+			existingChunks[chunk.ChunkId] = struct{}{}
+		}
 	}
-	defer file.Close()
+	log.Printf("found %d existing chunks", len(existingChunks))
 
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get file info: %v", err)
-	}
-
-	log.Printf("Uploading file: %s (size: %d bytes)", filePath, fileInfo.Size())
-
-	maxWorkers := runtime.NumCPU()
-	log.Printf("using %d workers", maxWorkers)
-	workChan := make(chan uploadChunk, maxWorkers)
-	resultChan := make(chan error, maxWorkers)
+	workers := runtime.NumCPU()
+	log.Printf("using %d workers", workers)
+	uploadQueue := make(chan *proto.UploadChunkRequest)
+	deleteQueue := make(chan *proto.DeleteChunkRequest)
+	resultChan := make(chan error)
 	var wg sync.WaitGroup
-
-	for range maxWorkers {
+	for range workers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for chunk := range workChan {
-				resp, err := client.UploadChunk(ctx, &proto.UploadChunkRequest{
-					FilePath: filePath,
-					Offset:   chunk.offset,
-					Content:  chunk.data,
-				})
+			for uploadRequest := range uploadQueue {
+				_, err := client.UploadChunk(ctx, uploadRequest)
 				if err != nil {
-					resultChan <- fmt.Errorf("failed to upload chunk %d: %v", chunk.index, err)
+					resultChan <- fmt.Errorf("failed to upload chunk %d: %v", uploadRequest.Offset, err)
 					continue
 				}
-				if !resp.Success {
-					resultChan <- fmt.Errorf("server error uploading chunk %d: %s", chunk.index, resp.Message)
+				resultChan <- nil
+			}
+			for deleteRequest := range deleteQueue {
+				_, err := client.DeleteChunk(ctx, deleteRequest)
+				if err != nil {
+					resultChan <- fmt.Errorf("failed to delete chunk %s: %v", deleteRequest, err)
 					continue
 				}
-				log.Printf("uploaded chunk %d (offset: %d, size: %d)", chunk.index, chunk.offset, len(chunk.data))
 				resultChan <- nil
 			}
 		}()
 	}
 
 	go func() {
-		defer close(workChan)
-		offset := int64(0)
-		chunkIndex := 1
+		file, err := os.Open(filePath)
+		if err != nil {
+			log.Printf("failed to open file: %v", err)
+			return
+		}
+		defer file.Close()
 
+		var currentChunkIDs = make(map[string]struct{})
+		offset := int64(0)
 		for {
 			buffer := make([]byte, chunkSize)
 			n, err := file.Read(buffer)
 			if err != nil && err != io.EOF {
-				resultChan <- fmt.Errorf("failed to read file: %v", err)
+				log.Printf("failed to read file: %v", err)
 				return
 			}
 			if n == 0 {
 				break
 			}
 
-			workChan <- uploadChunk{
-				data:   buffer[:n],
-				offset: offset,
-				index:  chunkIndex,
+			chunkData := buffer[:n]
+			chunkID := fmt.Sprintf("%x:%d", sha256.Sum256(chunkData), offset)
+			currentChunkIDs[chunkID] = struct{}{}
+
+			if _, ok := existingChunks[chunkID]; !ok {
+				log.Printf("uploading chunk %s", chunkID)
+				uploadQueue <- &proto.UploadChunkRequest{
+					FilePath: filePath,
+					Offset:   offset,
+					Content:  chunkData,
+				}
 			}
 
 			offset += int64(n)
-			chunkIndex++
 
 			if err == io.EOF {
 				break
 			}
 		}
+		close(uploadQueue)
+
+		for existing := range existingChunks {
+			if _, ok := currentChunkIDs[existing]; !ok {
+				log.Printf("deleting chunk %s", existing)
+				deleteQueue <- &proto.DeleteChunkRequest{
+					ChunkId: existing,
+				}
+			}
+		}
+		close(deleteQueue)
 	}()
 
 	go func() {
+		defer close(resultChan)
 		wg.Wait()
-		close(resultChan)
 	}()
 
-	chunkCount := 0
+	completedChunks := 0
 	for err := range resultChan {
 		if err != nil {
 			return err
 		}
-		chunkCount++
+		completedChunks++
 	}
+	log.Printf("successfully processed %d chunks", completedChunks)
 
-	log.Printf("successfully uploaded %d chunks", chunkCount)
 	return nil
 }
 
@@ -171,9 +185,6 @@ func downloadFile(filePath string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list chunks: %v", err)
-	}
-	if !listResp.Success {
-		return fmt.Errorf("server error: %s", listResp.Message)
 	}
 	if len(listResp.Chunks) == 0 {
 		return fmt.Errorf("no chunks found for file: %s", filePath)
@@ -207,10 +218,6 @@ func downloadFile(filePath string) error {
 					resultChan <- fmt.Errorf("failed to download chunk %s: %v", chunk.ChunkId, err)
 					continue
 				}
-				if !resp.Success {
-					resultChan <- fmt.Errorf("failed to download chunk %s: %s", chunk.ChunkId, resp.Message)
-					continue
-				}
 
 				fileMutex.Lock()
 				_, writeErr := outputFile.WriteAt(resp.Content, chunk.Offset)
@@ -221,7 +228,7 @@ func downloadFile(filePath string) error {
 					continue
 				}
 
-				log.Printf("Downloaded and wrote chunk (offset: %d, size: %d)", chunk.Offset, chunk.Size)
+				log.Printf("downloaded and wrote chunk (offset: %d, size: %d)", chunk.Offset, chunk.Size)
 				resultChan <- nil
 			}
 		}()

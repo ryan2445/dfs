@@ -55,7 +55,7 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 		bucket := tx.Bucket(FileMetadataBucket)
 		value := bucket.Get([]byte(key))
 		if value == nil {
-			return nil
+			return fmt.Errorf("file not found: %s", key)
 		}
 		var err error
 		fileMetadata, err = deserialize[File](value)
@@ -74,7 +74,7 @@ func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 		bucket := tx.Bucket(ChunksBucket)
 		value := bucket.Get([]byte(key))
 		if value == nil {
-			return nil
+			return fmt.Errorf("chunk not found: %s", key)
 		}
 		var err error
 		chunkMetadata, err = deserialize[Chunk](value)
@@ -101,8 +101,7 @@ func (metadata *BoltMetadataStore) PutChunk(chunk *Chunk) error {
 		var file *File
 		if fileData == nil {
 			file = &File{
-				Size:   0,
-				Chunks: make([]string, 0),
+				Chunks: make(map[string]struct{}),
 			}
 		} else {
 			file, err = deserialize[File](fileData)
@@ -111,8 +110,7 @@ func (metadata *BoltMetadataStore) PutChunk(chunk *Chunk) error {
 			}
 		}
 
-		file.Chunks = append(file.Chunks, chunkID)
-		file.Size += chunk.Size
+		file.Chunks[chunkID] = struct{}{}
 		updatedFileData, err := serialize(file)
 		if err != nil {
 			return fmt.Errorf("failed to serialize file metadata: %v", err)
@@ -132,15 +130,12 @@ func (metadata *BoltMetadataStore) GetChunksForFile(filePath string) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file metadata: %v", err)
 	}
-	if file == nil {
-		return nil, fmt.Errorf("file not found: %s", filePath)
-	}
 
 	chunks := make(map[string]*Chunk, len(file.Chunks))
 
 	err = metadata.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(ChunksBucket)
-		for _, chunkID := range file.Chunks {
+		for chunkID := range file.Chunks {
 			value := bucket.Get([]byte(chunkID))
 			if value == nil {
 				return fmt.Errorf("chunk not found: %s", chunkID)
@@ -160,4 +155,31 @@ func (metadata *BoltMetadataStore) GetChunksForFile(filePath string) (map[string
 	}
 
 	return chunks, nil
+}
+
+func (metadata *BoltMetadataStore) DeleteChunk(chunkID string, filePath string) error {
+	return metadata.db.Update(func(tx *bolt.Tx) error {
+		fileMetadataBucket := tx.Bucket(FileMetadataBucket)
+		fileData := fileMetadataBucket.Get([]byte(filePath))
+		if fileData != nil {
+			file, err := deserialize[File](fileData)
+			if err != nil {
+				return fmt.Errorf("failed to deserialize file metadata: %v", err)
+			}
+
+			delete(file.Chunks, chunkID)
+
+			updatedFileData, err := serialize(file)
+			if err != nil {
+				return fmt.Errorf("failed to serialize file metadata: %v", err)
+			}
+
+			if err := fileMetadataBucket.Put([]byte(filePath), updatedFileData); err != nil {
+				return fmt.Errorf("failed to update file metadata: %v", err)
+			}
+		}
+
+		chunksBucket := tx.Bucket(ChunksBucket)
+		return chunksBucket.Delete([]byte(chunkID))
+	})
 }

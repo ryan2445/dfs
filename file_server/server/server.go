@@ -65,18 +65,12 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 	log.Printf("received UploadChunkRequest: filepath=%s offset=%d", req.FilePath, req.Offset)
 
 	if req.FilePath != filepath.Clean(req.FilePath) {
-		return &proto.UploadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("invalid file path: %s", req.FilePath),
-		}, nil
+		return nil, fmt.Errorf("invalid file path: %s", req.FilePath)
 	}
 
 	chunkHash, nodeID, err := s.chunkStore.Write(req)
 	if err != nil {
-		return &proto.UploadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to write chunk: %v", err),
-		}, nil
+		return nil, fmt.Errorf("failed to write chunk: %v", err)
 	}
 
 	if err := s.metadataStore.PutChunk(&metadata_store.Chunk{
@@ -86,34 +80,22 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 		FilePath: req.FilePath,
 		Hash:     chunkHash,
 	}); err != nil {
-		return &proto.UploadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to store chunk mapping: %v", err),
-		}, nil
+		return nil, fmt.Errorf("failed to store chunk mapping: %v", err)
 	}
 
-	return &proto.UploadChunkResponse{
-		Success: true,
-		Message: fmt.Sprintf("chunk hash uploaded successfully: %s", chunkHash),
-	}, nil
+	return &proto.UploadChunkResponse{}, nil
 }
 
 func (s *FileServer) ListChunks(ctx context.Context, req *proto.ListChunksRequest) (*proto.ListChunksResponse, error) {
 	log.Printf("received ListChunksRequest for file: %s", req.FilePath)
 
 	if req.FilePath != filepath.Clean(req.FilePath) {
-		return &proto.ListChunksResponse{
-			Success: false,
-			Message: fmt.Sprintf("invalid file path: %s", req.FilePath),
-		}, nil
+		return nil, fmt.Errorf("invalid file path: %s", req.FilePath)
 	}
 
 	chunks, err := s.metadataStore.GetChunksForFile(req.FilePath)
 	if err != nil {
-		return &proto.ListChunksResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to get chunks for file: %v", err),
-		}, nil
+		return nil, fmt.Errorf("failed to get chunks for file: %v", err)
 	}
 
 	chunkInfos := make([]*proto.ChunkInfo, 0, len(chunks))
@@ -130,9 +112,7 @@ func (s *FileServer) ListChunks(ctx context.Context, req *proto.ListChunksReques
 	})
 
 	return &proto.ListChunksResponse{
-		Chunks:  chunkInfos,
-		Success: true,
-		Message: fmt.Sprintf("found %d chunks for file", len(chunkInfos)),
+		Chunks: chunkInfos,
 	}, nil
 }
 
@@ -141,29 +121,34 @@ func (s *FileServer) DownloadChunk(ctx context.Context, req *proto.DownloadChunk
 
 	chunk, err := s.metadataStore.GetChunk(req.ChunkId)
 	if err != nil {
-		return &proto.DownloadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to get chunk: %v", err),
-		}, nil
-	}
-	if chunk == nil {
-		return &proto.DownloadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("chunk not found: %s", req.ChunkId),
-		}, nil
+		return nil, fmt.Errorf("failed to get chunk: %v", err)
 	}
 
 	content, err := s.chunkStore.Read(chunk.Hash)
 	if err != nil {
-		return &proto.DownloadChunkResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to read chunk: %v", err),
-		}, nil
+		return nil, fmt.Errorf("failed to read chunk: %v", err)
 	}
 
 	return &proto.DownloadChunkResponse{
-		Success: true,
-		Message: fmt.Sprintf("chunk downloaded successfully: %s", req.ChunkId),
 		Content: content,
 	}, nil
+}
+
+func (s *FileServer) DeleteChunk(ctx context.Context, req *proto.DeleteChunkRequest) (*proto.DeleteChunkResponse, error) {
+	log.Printf("received DeleteChunkRequest for chunk: %s", req.ChunkId)
+
+	chunk, err := s.metadataStore.GetChunk(req.ChunkId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chunk: %v", err)
+	}
+
+	// if err := s.chunkStore.Delete(chunk.Hash); err != nil {
+	// 	return nil, fmt.Errorf("failed to delete chunk data: %v", err)
+	// }
+
+	if err := s.metadataStore.DeleteChunk(req.ChunkId, chunk.FilePath); err != nil {
+		return nil, fmt.Errorf("failed to delete chunk metadata: %v", err)
+	}
+
+	return &proto.DeleteChunkResponse{}, nil
 }

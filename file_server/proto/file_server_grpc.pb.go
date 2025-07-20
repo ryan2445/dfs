@@ -22,6 +22,7 @@ const (
 	FileService_UploadChunk_FullMethodName   = "/FileService/UploadChunk"
 	FileService_DownloadChunk_FullMethodName = "/FileService/DownloadChunk"
 	FileService_ListChunks_FullMethodName    = "/FileService/ListChunks"
+	FileService_DeleteChunk_FullMethodName   = "/FileService/DeleteChunk"
 )
 
 // FileServiceClient is the client API for FileService service.
@@ -31,6 +32,7 @@ type FileServiceClient interface {
 	UploadChunk(ctx context.Context, in *UploadChunkRequest, opts ...grpc.CallOption) (*UploadChunkResponse, error)
 	DownloadChunk(ctx context.Context, in *DownloadChunkRequest, opts ...grpc.CallOption) (*DownloadChunkResponse, error)
 	ListChunks(ctx context.Context, in *ListChunksRequest, opts ...grpc.CallOption) (*ListChunksResponse, error)
+	DeleteChunk(ctx context.Context, in *DeleteChunkRequest, opts ...grpc.CallOption) (*DeleteChunkResponse, error)
 }
 
 type fileServiceClient struct {
@@ -71,6 +73,16 @@ func (c *fileServiceClient) ListChunks(ctx context.Context, in *ListChunksReques
 	return out, nil
 }
 
+func (c *fileServiceClient) DeleteChunk(ctx context.Context, in *DeleteChunkRequest, opts ...grpc.CallOption) (*DeleteChunkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteChunkResponse)
+	err := c.cc.Invoke(ctx, FileService_DeleteChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileServiceServer is the server API for FileService service.
 // All implementations must embed UnimplementedFileServiceServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type FileServiceServer interface {
 	UploadChunk(context.Context, *UploadChunkRequest) (*UploadChunkResponse, error)
 	DownloadChunk(context.Context, *DownloadChunkRequest) (*DownloadChunkResponse, error)
 	ListChunks(context.Context, *ListChunksRequest) (*ListChunksResponse, error)
+	DeleteChunk(context.Context, *DeleteChunkRequest) (*DeleteChunkResponse, error)
 	mustEmbedUnimplementedFileServiceServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedFileServiceServer) DownloadChunk(context.Context, *DownloadCh
 }
 func (UnimplementedFileServiceServer) ListChunks(context.Context, *ListChunksRequest) (*ListChunksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListChunks not implemented")
+}
+func (UnimplementedFileServiceServer) DeleteChunk(context.Context, *DeleteChunkRequest) (*DeleteChunkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChunk not implemented")
 }
 func (UnimplementedFileServiceServer) mustEmbedUnimplementedFileServiceServer() {}
 func (UnimplementedFileServiceServer) testEmbeddedByValue()                     {}
@@ -172,6 +188,24 @@ func _FileService_ListChunks_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_DeleteChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).DeleteChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FileService_DeleteChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).DeleteChunk(ctx, req.(*DeleteChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FileService_ServiceDesc is the grpc.ServiceDesc for FileService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListChunks",
 			Handler:    _FileService_ListChunks_Handler,
+		},
+		{
+			MethodName: "DeleteChunk",
+			Handler:    _FileService_DeleteChunk_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
