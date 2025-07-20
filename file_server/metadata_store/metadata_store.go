@@ -15,6 +15,7 @@ type Chunk struct {
 	Offset   int64               `json:"offset"`
 	Size     int64               `json:"size"`
 	FilePath string              `json:"file_path"`
+	Hash     string              `json:"hash"`
 }
 
 func serialize[T any](value *T) ([]byte, error) {
@@ -38,9 +39,8 @@ func deserialize[T any](data []byte) (*T, error) {
 
 type MetadataStoreInterface interface {
 	GetFile(key string) (*File, error)
-	PutFile(key string, value *File) error
 	GetChunk(key string) (*Chunk, error)
-	PutChunk(key string, value *Chunk) error
+	PutChunk(chunk *Chunk) error
 	GetChunksForFile(filePath string) (map[string]*Chunk, error)
 	Close() error
 }

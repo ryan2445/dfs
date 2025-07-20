@@ -12,7 +12,6 @@ import (
 var (
 	FileMetadataBucket = []byte("file_metadata")
 	ChunksBucket       = []byte("chunks")
-	NodesBucket        = []byte("nodes")
 )
 
 type BoltMetadataStore struct {
@@ -68,18 +67,6 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 	return fileMetadata, nil
 }
 
-func (metadata *BoltMetadataStore) PutFile(key string, value *File) error {
-	data, err := serialize(value)
-	if err != nil {
-		return fmt.Errorf("failed to serialize file metadata: %v", err)
-	}
-
-	return metadata.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(FileMetadataBucket)
-		return bucket.Put([]byte(key), data)
-	})
-}
-
 func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 	var chunkMetadata *Chunk
 
@@ -99,15 +86,18 @@ func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 	return chunkMetadata, nil
 }
 
-func (metadata *BoltMetadataStore) PutChunk(key string, value *Chunk) error {
-	valueData, err := serialize(value)
+func (metadata *BoltMetadataStore) PutChunk(chunk *Chunk) error {
+	chunkID := fmt.Sprintf("%s:%d", chunk.Hash, chunk.Offset)
+
+	value, err := serialize(chunk)
 	if err != nil {
 		return fmt.Errorf("failed to serialize chunk mapping: %v", err)
 	}
 
 	return metadata.db.Update(func(tx *bolt.Tx) error {
 		fileMetadataBucket := tx.Bucket(FileMetadataBucket)
-		fileData := fileMetadataBucket.Get([]byte(value.FilePath))
+		fileData := fileMetadataBucket.Get([]byte(chunk.FilePath))
+
 		var file *File
 		if fileData == nil {
 			file = &File{
@@ -120,18 +110,20 @@ func (metadata *BoltMetadataStore) PutChunk(key string, value *Chunk) error {
 				return fmt.Errorf("failed to deserialize file metadata: %v", err)
 			}
 		}
-		file.Chunks = append(file.Chunks, key)
-		file.Size += value.Size
+
+		file.Chunks = append(file.Chunks, chunkID)
+		file.Size += chunk.Size
 		updatedFileData, err := serialize(file)
 		if err != nil {
 			return fmt.Errorf("failed to serialize file metadata: %v", err)
 		}
-		if err := fileMetadataBucket.Put([]byte(value.FilePath), updatedFileData); err != nil {
+
+		if err := fileMetadataBucket.Put([]byte(chunk.FilePath), updatedFileData); err != nil {
 			return fmt.Errorf("failed to update file metadata: %v", err)
 		}
 
 		chunksBucket := tx.Bucket(ChunksBucket)
-		return chunksBucket.Put([]byte(key), valueData)
+		return chunksBucket.Put([]byte(chunkID), value)
 	})
 }
 

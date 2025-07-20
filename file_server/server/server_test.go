@@ -88,8 +88,8 @@ func TestUploadChunk(t *testing.T) {
 		t.Errorf("Expected success=true, got success=%v", resp.Success)
 	}
 
-	hash := sha256.Sum256(req.Content)
-	chunkID := fmt.Sprintf("%x", hash)
+	chunkHash := fmt.Sprintf("%x", sha256.Sum256(req.Content))
+	chunkID := fmt.Sprintf("%s:%d", chunkHash, req.Offset)
 
 	file, err := metadataStore.GetFile(req.FilePath)
 	if err != nil {
@@ -124,7 +124,7 @@ func TestUploadChunk(t *testing.T) {
 		}
 	}
 
-	chunkPath := filepath.Join(testDataDir, chunkID)
+	chunkPath := filepath.Join(testDataDir, chunkHash)
 	if _, err := os.Stat(chunkPath); os.IsNotExist(err) {
 		t.Errorf("Expected chunk file to exist at %s", chunkPath)
 	} else if err != nil {
@@ -160,8 +160,9 @@ func TestListChunks(t *testing.T) {
 			t.Fatalf("Expected upload success, got: %s", resp.Message)
 		}
 
-		hash := sha256.Sum256(req.Content)
-		expectedChunkIDs = append(expectedChunkIDs, fmt.Sprintf("%x", hash))
+		chunkHash := fmt.Sprintf("%x", sha256.Sum256(req.Content))
+		chunkID := fmt.Sprintf("%s:%d", chunkHash, chunk.offset)
+		expectedChunkIDs = append(expectedChunkIDs, chunkID)
 	}
 
 	listReq := &proto.ListChunksRequest{
@@ -219,8 +220,8 @@ func TestDownloadChunk(t *testing.T) {
 		t.Fatalf("Expected upload success, got: %s", uploadResp.Message)
 	}
 
-	hash := sha256.Sum256(testContent)
-	chunkID := fmt.Sprintf("%x", hash)
+	chunkHash := fmt.Sprintf("%x", sha256.Sum256(testContent))
+	chunkID := fmt.Sprintf("%s:%d", chunkHash, 0)
 
 	downloadReq := &proto.DownloadChunkRequest{
 		ChunkId: chunkID,
