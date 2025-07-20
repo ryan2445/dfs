@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"syscall"
 
@@ -63,6 +64,13 @@ func StartServer() error {
 func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequest) (*proto.UploadChunkResponse, error) {
 	log.Printf("received UploadChunkRequest: filepath=%s offset=%d", req.FilePath, req.Offset)
 
+	if req.FilePath != filepath.Clean(req.FilePath) {
+		return &proto.UploadChunkResponse{
+			Success: false,
+			Message: fmt.Sprintf("invalid file path: %s", req.FilePath),
+		}, nil
+	}
+
 	chunkID, nodeID, err := s.chunkStore.Write(req)
 	if err != nil {
 		return &proto.UploadChunkResponse{
@@ -94,6 +102,13 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 func (s *FileServer) ListChunks(ctx context.Context, req *proto.ListChunksRequest) (*proto.ListChunksResponse, error) {
 	log.Printf("received ListChunksRequest for file: %s", req.FilePath)
 
+	if req.FilePath != filepath.Clean(req.FilePath) {
+		return &proto.ListChunksResponse{
+			Success: false,
+			Message: fmt.Sprintf("invalid file path: %s", req.FilePath),
+		}, nil
+	}
+
 	chunks, err := s.metadataStore.GetChunksForFile(req.FilePath)
 	if err != nil {
 		return &proto.ListChunksResponse{
@@ -102,7 +117,7 @@ func (s *FileServer) ListChunks(ctx context.Context, req *proto.ListChunksReques
 		}, nil
 	}
 
-	var chunkInfos []*proto.ChunkInfo
+	chunkInfos := make([]*proto.ChunkInfo, 0, len(chunks))
 	for chunkID, chunk := range chunks {
 		chunkInfos = append(chunkInfos, &proto.ChunkInfo{
 			ChunkId: chunkID,

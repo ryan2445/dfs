@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sync"
 
 	"dfs/file_server/proto"
 
@@ -143,19 +145,60 @@ func downloadFile(filePath string) error {
 	}
 	defer outputFile.Close()
 
-	for i, chunk := range listResp.Chunks {
-		log.Printf("Downloading chunk %d/%d %+v", i+1, len(listResp.Chunks), chunk)
-		resp, err := client.DownloadChunk(ctx, &proto.DownloadChunkRequest{
-			ChunkId: chunk.ChunkId,
-		})
+	maxWorkers := runtime.NumCPU()
+
+	workChan := make(chan *proto.ChunkInfo, len(listResp.Chunks))
+	resultChan := make(chan error, len(listResp.Chunks))
+	var fileMutex sync.Mutex
+	var wg sync.WaitGroup
+
+	for range maxWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for chunk := range workChan {
+				resp, err := client.DownloadChunk(ctx, &proto.DownloadChunkRequest{
+					ChunkId: chunk.ChunkId,
+				})
+				if err != nil {
+					resultChan <- fmt.Errorf("failed to download chunk %s: %v", chunk.ChunkId, err)
+					continue
+				}
+				if !resp.Success {
+					resultChan <- fmt.Errorf("failed to download chunk %s: %s", chunk.ChunkId, resp.Message)
+					continue
+				}
+
+				fileMutex.Lock()
+				_, writeErr := outputFile.WriteAt(resp.Content, chunk.Offset)
+				fileMutex.Unlock()
+
+				if writeErr != nil {
+					resultChan <- fmt.Errorf("failed to write chunk %s to file: %v", chunk.ChunkId, writeErr)
+					continue
+				}
+
+				log.Printf("Downloaded and wrote chunk (offset: %d, size: %d)", chunk.Offset, chunk.Size)
+				resultChan <- nil
+			}
+		}()
+	}
+
+	go func() {
+		for _, chunk := range listResp.Chunks {
+			workChan <- chunk
+		}
+		close(workChan)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for err := range resultChan {
 		if err != nil {
-			return fmt.Errorf("failed to download chunk: %v", err)
-		}
-		if !resp.Success {
-			return fmt.Errorf("failed to download chunk: %s", resp.Message)
-		}
-		if _, err := outputFile.Write(resp.Content); err != nil {
-			return fmt.Errorf("failed to write chunk data: %v", err)
+			return err
 		}
 	}
 

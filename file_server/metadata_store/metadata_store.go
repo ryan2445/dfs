@@ -1,5 +1,10 @@
 package metadata_store
 
+import (
+	"bytes"
+	"encoding/gob"
+)
+
 type File struct {
 	Size   int64               `json:"size"`
 	Chunks map[string]struct{} `json:"chunks"`
@@ -10,6 +15,25 @@ type Chunk struct {
 	Offset   int64               `json:"offset"`
 	Size     int64               `json:"size"`
 	FilePath string              `json:"file_path"`
+}
+
+func serialize[T any](value *T) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func deserialize[T any](data []byte) (*T, error) {
+	var value T
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	if err := dec.Decode(&value); err != nil {
+		return nil, err
+	}
+	return &value, nil
 }
 
 type MetadataStoreInterface interface {

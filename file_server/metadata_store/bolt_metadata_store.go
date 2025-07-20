@@ -1,7 +1,6 @@
 package metadata_store
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -59,7 +58,9 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 		if value == nil {
 			return nil
 		}
-		return json.Unmarshal(value, &fileMetadata)
+		var err error
+		fileMetadata, err = deserialize[File](value)
+		return err
 	}); err != nil {
 		return nil, err
 	}
@@ -68,9 +69,9 @@ func (metadata *BoltMetadataStore) GetFile(key string) (*File, error) {
 }
 
 func (metadata *BoltMetadataStore) PutFile(key string, value *File) error {
-	data, err := json.Marshal(value)
+	data, err := serialize(value)
 	if err != nil {
-		return fmt.Errorf("failed to marshal file metadata: %v", err)
+		return fmt.Errorf("failed to serialize file metadata: %v", err)
 	}
 
 	return metadata.db.Update(func(tx *bolt.Tx) error {
@@ -88,7 +89,9 @@ func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 		if value == nil {
 			return nil
 		}
-		return json.Unmarshal(value, &chunkMetadata)
+		var err error
+		chunkMetadata, err = deserialize[Chunk](value)
+		return err
 	}); err != nil {
 		return nil, err
 	}
@@ -115,9 +118,9 @@ func (metadata *BoltMetadataStore) PutChunk(key string, value *Chunk) error {
 		}
 	}
 
-	valueData, err := json.Marshal(value)
+	valueData, err := serialize(value)
 	if err != nil {
-		return fmt.Errorf("failed to marshal chunk mapping: %v", err)
+		return fmt.Errorf("failed to serialize chunk mapping: %v", err)
 	}
 
 	return metadata.db.Update(func(tx *bolt.Tx) error {
@@ -135,16 +138,27 @@ func (metadata *BoltMetadataStore) GetChunksForFile(filePath string) (map[string
 		return nil, fmt.Errorf("file not found: %s", filePath)
 	}
 
-	chunks := make(map[string]*Chunk)
-	for chunkID := range file.Chunks {
-		chunk, err := metadata.GetChunk(chunkID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get chunk %s: %v", chunkID, err)
+	chunks := make(map[string]*Chunk, len(file.Chunks))
+
+	err = metadata.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(ChunksBucket)
+		for chunkID := range file.Chunks {
+			value := bucket.Get([]byte(chunkID))
+			if value == nil {
+				return fmt.Errorf("chunk not found: %s", chunkID)
+			}
+
+			chunk, err := deserialize[Chunk](value)
+			if err != nil {
+				return fmt.Errorf("failed to deserialize chunk %s: %v", chunkID, err)
+			}
+			chunks[chunkID] = chunk
 		}
-		if chunk == nil {
-			return nil, fmt.Errorf("chunk not found: %s", chunkID)
-		}
-		chunks[chunkID] = chunk
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return chunks, nil
