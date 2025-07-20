@@ -6,8 +6,8 @@ import (
 )
 
 type File struct {
-	Size   int64               `json:"size"`
-	Chunks map[string]struct{} `json:"chunks"`
+	Size   int64    `json:"size"`
+	Chunks []string `json:"chunks"`
 }
 
 type Chunk struct {

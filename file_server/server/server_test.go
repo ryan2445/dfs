@@ -101,7 +101,7 @@ func TestUploadChunk(t *testing.T) {
 		if file.Size != int64(len(req.Content)) {
 			t.Errorf("Expected Size=%d, got Size=%d", len(req.Content), file.Size)
 		}
-		if _, ok := file.Chunks[chunkID]; !ok {
+		if !slices.Contains(file.Chunks, chunkID) {
 			t.Errorf("Expected chunk ID %s to be in file metadata", chunkID)
 		}
 	}

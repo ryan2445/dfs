@@ -100,32 +100,38 @@ func (metadata *BoltMetadataStore) GetChunk(key string) (*Chunk, error) {
 }
 
 func (metadata *BoltMetadataStore) PutChunk(key string, value *Chunk) error {
-	file, err := metadata.GetFile(value.FilePath)
-	if err != nil {
-		return fmt.Errorf("failed to get file metadata: %v", err)
-	}
-	if file == nil {
-		file = &File{
-			Size:   0,
-			Chunks: make(map[string]struct{}),
-		}
-	}
-	if _, ok := file.Chunks[key]; !ok {
-		file.Chunks[key] = struct{}{}
-		file.Size += value.Size
-		if err := metadata.PutFile(value.FilePath, file); err != nil {
-			return fmt.Errorf("failed to update file metadata: %v", err)
-		}
-	}
-
 	valueData, err := serialize(value)
 	if err != nil {
 		return fmt.Errorf("failed to serialize chunk mapping: %v", err)
 	}
 
 	return metadata.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(ChunksBucket)
-		return bucket.Put([]byte(key), valueData)
+		fileMetadataBucket := tx.Bucket(FileMetadataBucket)
+		fileData := fileMetadataBucket.Get([]byte(value.FilePath))
+		var file *File
+		if fileData == nil {
+			file = &File{
+				Size:   0,
+				Chunks: make([]string, 0),
+			}
+		} else {
+			file, err = deserialize[File](fileData)
+			if err != nil {
+				return fmt.Errorf("failed to deserialize file metadata: %v", err)
+			}
+		}
+		file.Chunks = append(file.Chunks, key)
+		file.Size += value.Size
+		updatedFileData, err := serialize(file)
+		if err != nil {
+			return fmt.Errorf("failed to serialize file metadata: %v", err)
+		}
+		if err := fileMetadataBucket.Put([]byte(value.FilePath), updatedFileData); err != nil {
+			return fmt.Errorf("failed to update file metadata: %v", err)
+		}
+
+		chunksBucket := tx.Bucket(ChunksBucket)
+		return chunksBucket.Put([]byte(key), valueData)
 	})
 }
 
@@ -142,7 +148,7 @@ func (metadata *BoltMetadataStore) GetChunksForFile(filePath string) (map[string
 
 	err = metadata.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(ChunksBucket)
-		for chunkID := range file.Chunks {
+		for _, chunkID := range file.Chunks {
 			value := bucket.Get([]byte(chunkID))
 			if value == nil {
 				return fmt.Errorf("chunk not found: %s", chunkID)

@@ -24,15 +24,19 @@ func (c *OSChunkStore) Write(chunk *proto.UploadChunkRequest) (string, string, e
 		return "", "", err
 	}
 
-	hash := sha256.Sum256(chunk.Content)
-	hashStr := fmt.Sprintf("%x", hash)
-
 	node, err := os.Hostname()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get hostname: %v", err)
 	}
 
+	hash := sha256.Sum256(chunk.Content)
+	hashStr := fmt.Sprintf("%x", hash)
+
 	chunkPath := filepath.Join(c.directory, hashStr)
+
+	if _, err := os.Stat(chunkPath); err == nil {
+		return hashStr, node, nil
+	}
 
 	if err := os.WriteFile(chunkPath, chunk.Content, 0744); err != nil {
 		return "", "", fmt.Errorf("failed to write chunk file: %v", err)

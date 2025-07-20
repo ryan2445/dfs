@@ -48,6 +48,12 @@ func main() {
 	}
 }
 
+type uploadChunk struct {
+	data   []byte
+	offset int64
+	index  int
+}
+
 func uploadFile(filePath string) error {
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -71,44 +77,81 @@ func uploadFile(filePath string) error {
 
 	log.Printf("Uploading file: %s (size: %d bytes)", filePath, fileInfo.Size())
 
-	buffer := make([]byte, chunkSize)
-	offset := int64(0)
-	chunkCount := 0
+	maxWorkers := runtime.NumCPU()
+	log.Printf("using %d workers", maxWorkers)
+	workChan := make(chan uploadChunk, maxWorkers)
+	resultChan := make(chan error, maxWorkers)
+	var wg sync.WaitGroup
 
-	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("failed to read file: %v", err)
-		}
-		if n == 0 {
-			break
-		}
-
-		chunkData := buffer[:n]
-		chunkCount++
-
-		log.Printf("Uploading chunk %d (offset: %d, size: %d)", chunkCount, offset, n)
-
-		resp, err := client.UploadChunk(ctx, &proto.UploadChunkRequest{
-			FilePath: filePath,
-			Offset:   offset,
-			Content:  chunkData,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to upload chunk %d: %v", chunkCount, err)
-		}
-		if !resp.Success {
-			return fmt.Errorf("server error uploading chunk %d: %s", chunkCount, resp.Message)
-		}
-
-		offset += int64(n)
-
-		if err == io.EOF {
-			break
-		}
+	for range maxWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for chunk := range workChan {
+				resp, err := client.UploadChunk(ctx, &proto.UploadChunkRequest{
+					FilePath: filePath,
+					Offset:   chunk.offset,
+					Content:  chunk.data,
+				})
+				if err != nil {
+					resultChan <- fmt.Errorf("failed to upload chunk %d: %v", chunk.index, err)
+					continue
+				}
+				if !resp.Success {
+					resultChan <- fmt.Errorf("server error uploading chunk %d: %s", chunk.index, resp.Message)
+					continue
+				}
+				log.Printf("uploaded chunk %d (offset: %d, size: %d)", chunk.index, chunk.offset, len(chunk.data))
+				resultChan <- nil
+			}
+		}()
 	}
 
-	log.Printf("Successfully uploaded %d chunks", chunkCount)
+	go func() {
+		defer close(workChan)
+		offset := int64(0)
+		chunkIndex := 1
+
+		for {
+			buffer := make([]byte, chunkSize)
+			n, err := file.Read(buffer)
+			if err != nil && err != io.EOF {
+				resultChan <- fmt.Errorf("failed to read file: %v", err)
+				return
+			}
+			if n == 0 {
+				break
+			}
+
+			workChan <- uploadChunk{
+				data:   buffer[:n],
+				offset: offset,
+				index:  chunkIndex,
+			}
+
+			offset += int64(n)
+			chunkIndex++
+
+			if err == io.EOF {
+				break
+			}
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	chunkCount := 0
+	for err := range resultChan {
+		if err != nil {
+			return err
+		}
+		chunkCount++
+	}
+
+	log.Printf("successfully uploaded %d chunks", chunkCount)
 	return nil
 }
 
@@ -146,7 +189,7 @@ func downloadFile(filePath string) error {
 	defer outputFile.Close()
 
 	maxWorkers := runtime.NumCPU()
-
+	log.Printf("using %d workers", maxWorkers)
 	workChan := make(chan *proto.ChunkInfo, len(listResp.Chunks))
 	resultChan := make(chan error, len(listResp.Chunks))
 	var fileMutex sync.Mutex
@@ -196,11 +239,14 @@ func downloadFile(filePath string) error {
 		close(resultChan)
 	}()
 
+	completedChunks := 0
 	for err := range resultChan {
 		if err != nil {
 			return err
 		}
+		completedChunks++
 	}
 
+	log.Printf("successfully downloaded %d chunks", completedChunks)
 	return nil
 }
