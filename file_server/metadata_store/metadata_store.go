@@ -1,47 +1,41 @@
 package metadata_store
 
 import (
-	"bytes"
-	"encoding/gob"
+	"google.golang.org/protobuf/proto"
+	pb "dfs/file_server/proto"
 )
 
-type File struct {
-	Chunks map[string]struct{} `json:"chunks"`
+
+func serializeFile(file *pb.File) ([]byte, error) {
+	return proto.Marshal(file)
 }
 
-type Chunk struct {
-	Nodes    map[string]struct{} `json:"nodes"`
-	Offset   int64               `json:"offset"`
-	Size     int64               `json:"size"`
-	FilePath string              `json:"file_path"`
-	Hash     string              `json:"hash"`
-}
-
-func serialize[T any](value *T) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(value); err != nil {
+func deserializeFile(data []byte) (*pb.File, error) {
+	file := &pb.File{}
+	if err := proto.Unmarshal(data, file); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	return file, nil
 }
 
-func deserialize[T any](data []byte) (*T, error) {
-	var value T
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	if err := dec.Decode(&value); err != nil {
+func serializeChunk(chunk *pb.Chunk) ([]byte, error) {
+	return proto.Marshal(chunk)
+}
+
+func deserializeChunk(data []byte) (*pb.Chunk, error) {
+	chunk := &pb.Chunk{}
+	if err := proto.Unmarshal(data, chunk); err != nil {
 		return nil, err
 	}
-	return &value, nil
+	return chunk, nil
 }
 
 type MetadataStoreInterface interface {
-	GetFile(key string) (*File, error)
-	GetChunk(key string) (*Chunk, error)
-	PutChunk(chunk *Chunk) error
+	GetFile(key string) (*pb.File, error)
+	GetChunk(key string) (*pb.Chunk, error)
+	PutChunk(chunk *pb.Chunk) error
 	DeleteChunk(chunkID string, filePath string) error
-	GetChunksForFile(filePath string) (map[string]*Chunk, error)
+	GetChunksForFile(filePath string) (map[string]*pb.Chunk, error)
 	Close() error
 }
 

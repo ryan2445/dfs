@@ -73,8 +73,8 @@ func (s *FileServer) UploadChunk(ctx context.Context, req *proto.UploadChunkRequ
 		return nil, fmt.Errorf("failed to write chunk: %v", err)
 	}
 
-	err = s.metadataStore.PutChunk(&metadata_store.Chunk{
-		Nodes:    map[string]struct{}{nodeID: {}},
+	err = s.metadataStore.PutChunk(&proto.Chunk{
+		Nodes:    map[string]bool{nodeID: true},
 		Offset:   req.Offset,
 		Size:     int64(len(req.Content)),
 		FilePath: req.FilePath,

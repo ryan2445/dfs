@@ -223,7 +223,7 @@ func (x *ChunkInfo) GetSize() int64 {
 
 type ListChunksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Chunks        []*ChunkInfo           `protobuf:"bytes,3,rep,name=chunks,proto3" json:"chunks,omitempty"`
+	Chunks        []*ChunkInfo           `protobuf:"bytes,1,rep,name=chunks,proto3" json:"chunks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -433,6 +433,126 @@ func (*DeleteChunkResponse) Descriptor() ([]byte, []int) {
 	return file_file_server_proto_rawDescGZIP(), []int{8}
 }
 
+type File struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Chunks        map[string]bool        `protobuf:"bytes,1,rep,name=chunks,proto3" json:"chunks,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *File) Reset() {
+	*x = File{}
+	mi := &file_file_server_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *File) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*File) ProtoMessage() {}
+
+func (x *File) ProtoReflect() protoreflect.Message {
+	mi := &file_file_server_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use File.ProtoReflect.Descriptor instead.
+func (*File) Descriptor() ([]byte, []int) {
+	return file_file_server_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *File) GetChunks() map[string]bool {
+	if x != nil {
+		return x.Chunks
+	}
+	return nil
+}
+
+type Chunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nodes         map[string]bool        `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Offset        int64                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
+	FilePath      string                 `protobuf:"bytes,4,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	Hash          string                 `protobuf:"bytes,5,opt,name=hash,proto3" json:"hash,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Chunk) Reset() {
+	*x = Chunk{}
+	mi := &file_file_server_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Chunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Chunk) ProtoMessage() {}
+
+func (x *Chunk) ProtoReflect() protoreflect.Message {
+	mi := &file_file_server_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Chunk.ProtoReflect.Descriptor instead.
+func (*Chunk) Descriptor() ([]byte, []int) {
+	return file_file_server_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Chunk) GetNodes() map[string]bool {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *Chunk) GetOffset() int64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *Chunk) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *Chunk) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *Chunk) GetHash() string {
+	if x != nil {
+		return x.Hash
+	}
+	return ""
+}
+
 var File_file_server_proto protoreflect.FileDescriptor
 
 const file_file_server_proto_rawDesc = "" +
@@ -450,7 +570,7 @@ const file_file_server_proto_rawDesc = "" +
 	"\x06offset\x18\x02 \x01(\x03R\x06offset\x12\x12\n" +
 	"\x04size\x18\x03 \x01(\x03R\x04size\"8\n" +
 	"\x12ListChunksResponse\x12\"\n" +
-	"\x06chunks\x18\x03 \x03(\v2\n" +
+	"\x06chunks\x18\x01 \x03(\v2\n" +
 	".ChunkInfoR\x06chunks\"1\n" +
 	"\x14DownloadChunkRequest\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\"1\n" +
@@ -458,7 +578,22 @@ const file_file_server_proto_rawDesc = "" +
 	"\acontent\x18\x03 \x01(\fR\acontent\"/\n" +
 	"\x12DeleteChunkRequest\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\"\x15\n" +
-	"\x13DeleteChunkResponse2\xf8\x01\n" +
+	"\x13DeleteChunkResponse\"l\n" +
+	"\x04File\x12)\n" +
+	"\x06chunks\x18\x01 \x03(\v2\x11.File.ChunksEntryR\x06chunks\x1a9\n" +
+	"\vChunksEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01\"\xc7\x01\n" +
+	"\x05Chunk\x12'\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x11.Chunk.NodesEntryR\x05nodes\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x03R\x06offset\x12\x12\n" +
+	"\x04size\x18\x03 \x01(\x03R\x04size\x12\x1b\n" +
+	"\tfile_path\x18\x04 \x01(\tR\bfilePath\x12\x12\n" +
+	"\x04hash\x18\x05 \x01(\tR\x04hash\x1a8\n" +
+	"\n" +
+	"NodesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x012\xf8\x01\n" +
 	"\vFileService\x128\n" +
 	"\vUploadChunk\x12\x13.UploadChunkRequest\x1a\x14.UploadChunkResponse\x12>\n" +
 	"\rDownloadChunk\x12\x15.DownloadChunkRequest\x1a\x16.DownloadChunkResponse\x125\n" +
@@ -478,7 +613,7 @@ func file_file_server_proto_rawDescGZIP() []byte {
 	return file_file_server_proto_rawDescData
 }
 
-var file_file_server_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_file_server_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_file_server_proto_goTypes = []any{
 	(*UploadChunkRequest)(nil),    // 0: UploadChunkRequest
 	(*UploadChunkResponse)(nil),   // 1: UploadChunkResponse
@@ -489,22 +624,28 @@ var file_file_server_proto_goTypes = []any{
 	(*DownloadChunkResponse)(nil), // 6: DownloadChunkResponse
 	(*DeleteChunkRequest)(nil),    // 7: DeleteChunkRequest
 	(*DeleteChunkResponse)(nil),   // 8: DeleteChunkResponse
+	(*File)(nil),                  // 9: File
+	(*Chunk)(nil),                 // 10: Chunk
+	nil,                           // 11: File.ChunksEntry
+	nil,                           // 12: Chunk.NodesEntry
 }
 var file_file_server_proto_depIdxs = []int32{
-	3, // 0: ListChunksResponse.chunks:type_name -> ChunkInfo
-	0, // 1: FileService.UploadChunk:input_type -> UploadChunkRequest
-	5, // 2: FileService.DownloadChunk:input_type -> DownloadChunkRequest
-	2, // 3: FileService.ListChunks:input_type -> ListChunksRequest
-	7, // 4: FileService.DeleteChunk:input_type -> DeleteChunkRequest
-	1, // 5: FileService.UploadChunk:output_type -> UploadChunkResponse
-	6, // 6: FileService.DownloadChunk:output_type -> DownloadChunkResponse
-	4, // 7: FileService.ListChunks:output_type -> ListChunksResponse
-	8, // 8: FileService.DeleteChunk:output_type -> DeleteChunkResponse
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3,  // 0: ListChunksResponse.chunks:type_name -> ChunkInfo
+	11, // 1: File.chunks:type_name -> File.ChunksEntry
+	12, // 2: Chunk.nodes:type_name -> Chunk.NodesEntry
+	0,  // 3: FileService.UploadChunk:input_type -> UploadChunkRequest
+	5,  // 4: FileService.DownloadChunk:input_type -> DownloadChunkRequest
+	2,  // 5: FileService.ListChunks:input_type -> ListChunksRequest
+	7,  // 6: FileService.DeleteChunk:input_type -> DeleteChunkRequest
+	1,  // 7: FileService.UploadChunk:output_type -> UploadChunkResponse
+	6,  // 8: FileService.DownloadChunk:output_type -> DownloadChunkResponse
+	4,  // 9: FileService.ListChunks:output_type -> ListChunksResponse
+	8,  // 10: FileService.DeleteChunk:output_type -> DeleteChunkResponse
+	7,  // [7:11] is the sub-list for method output_type
+	3,  // [3:7] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_file_server_proto_init() }
@@ -518,7 +659,7 @@ func file_file_server_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_file_server_proto_rawDesc), len(file_file_server_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

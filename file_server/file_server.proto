@@ -28,7 +28,7 @@ message ChunkInfo {
 }
 
 message ListChunksResponse {
-  repeated ChunkInfo chunks = 3;
+  repeated ChunkInfo chunks = 1;
 }
 
 message DownloadChunkRequest {
@@ -44,3 +44,15 @@ message DeleteChunkRequest {
 }
 
 message DeleteChunkResponse {}
+
+message File {
+  map<string, bool> chunks = 1;
+}
+
+message Chunk {
+  map<string, bool> nodes = 1;
+  int64 offset = 2;
+  int64 size = 3;
+  string file_path = 4;
+  string hash = 5;
+}
