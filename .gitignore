@@ -4,3 +4,6 @@ file_server/server/test_data/
 file_client/file_client
 .DS_Store
 CLAUDE.md
+.env
+.env*
+*.env
